@@ -3,6 +3,7 @@ import BaseHTTPServer
 import SocketServer
 from subprocess import check_output, CalledProcessError
 from ConfigParser import ConfigParser, NoOptionError
+import zlib
 
 config = ConfigParser()
 config.read('/etc/exec-exporter.ini')
@@ -25,9 +26,12 @@ class Handler(BaseHTTPServer.BaseHTTPRequestHandler):
 
 		s.send_response(200)
 		s.send_header('Content-type', 'text/plain')
+		# XXX: sure not all clients can accept gzipped data, but in practice virtually no one will tell the difference
+		s.send_header('Content-encoding', 'gzip')
 		s.end_headers()
 
-		s.wfile.write(output)
+		z = zlib.compressobj(9, zlib.DEFLATED, zlib.MAX_WBITS | 16)
+		s.wfile.write(z.compress(output) + z.flush())
 
 if __name__ == '__main__':
 	BaseHTTPServer.HTTPServer(('', 9999), Handler).serve_forever()
